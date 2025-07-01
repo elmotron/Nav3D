@@ -15,7 +15,7 @@ TSharedRef<IDetailCustomization> FNav3DVolumeProperties::MakeInstance()
 
 void FNav3DVolumeProperties::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
-	TSharedPtr<IPropertyHandle> PrimaryTickProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UActorComponent, PrimaryComponentTick));
+	const TSharedPtr<IPropertyHandle> PrimaryTickProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UActorComponent, PrimaryComponentTick));
 
 	if (PrimaryTickProperty->IsValidHandle() && DetailBuilder.HasClassDefaultObject())
 	{
@@ -42,8 +42,7 @@ void FNav3DVolumeProperties::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 		const TWeakObjectPtr<UObject>& CurrentObject = SelectedObjects[ObjectIndex];
 		if (CurrentObject.IsValid())
 		{
-			ANav3DVolume* CurrentVolume = Cast<ANav3DVolume>(CurrentObject.Get());
-			if (CurrentVolume != nullptr)
+			if (ANav3DVolume* CurrentVolume = Cast<ANav3DVolume>(CurrentObject.Get()); CurrentVolume != nullptr)
 			{
 				Volume = CurrentVolume;
 				break;
@@ -62,11 +61,11 @@ void FNav3DVolumeProperties::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			.OnClicked(this, &FNav3DVolumeProperties::OnBuildOctree)
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(NSLOCTEXT("Nav3DVolume", "Build Octree", "Build Octree"))
-		]
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(NSLOCTEXT("Nav3DVolume", "Build Octree", "Build Octree"))
+			]
 		];
 
 	DetailBuilder.EditCategory("Nav3D")
@@ -80,23 +79,25 @@ void FNav3DVolumeProperties::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			.OnClicked(this, &FNav3DVolumeProperties::OnClearOctree)
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(NSLOCTEXT("Nav3DVolume", "Clear Octree", "Clear Octree"))
-		]
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(NSLOCTEXT("Nav3DVolume", "Clear Octree", "Clear Octree"))
+			]
 		];
 }
 
-FReply FNav3DVolumeProperties::OnBuildOctree() const {
+FReply FNav3DVolumeProperties::OnBuildOctree() const
+{
 	if (Volume.IsValid())
-	{		
+	{
 		Volume->BuildOctree();
 	}
 	return FReply::Handled();
 }
 
-FReply FNav3DVolumeProperties::OnClearOctree() const {
+FReply FNav3DVolumeProperties::OnClearOctree() const
+{
 	if (Volume.IsValid())
 	{
 		Volume->Initialise();

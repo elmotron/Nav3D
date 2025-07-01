@@ -11,15 +11,18 @@ class FNav3DUpdateOctreeTask : public FNonAbandonableTask
 public:
 	FNav3DUpdateOctreeTask(
 		ANav3DVolume* Volume,
-		const FNav3DUpdateOctreeDelegate Complete) :
+		const FNav3DUpdateOctreeDelegate& Complete) :
 		Volume(Volume),
-		TaskComplete(Complete){}
+		TaskComplete(Complete)
+	{
+	}
 
 protected:
 	ANav3DVolume* Volume;
 	FNav3DUpdateOctreeDelegate TaskComplete;
 
-	void DoWork() const {
+	void DoWork() const
+	{
 		Volume->UpdateOctree();
 		TaskComplete.Execute();
 	}

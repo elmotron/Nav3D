@@ -1,4 +1,3 @@
-
 #include "Nav3D.h"
 
 #if WITH_EDITOR
@@ -22,5 +21,5 @@ void FNav3DModule::ShutdownModule()
 }
 
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FNav3DModule, Nav3D)

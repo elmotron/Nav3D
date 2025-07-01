@@ -12,14 +12,14 @@ class FNav3DFindCoverTask : public FNonAbandonableTask
 public:
 	FNav3DFindCoverTask(
 		UNav3DComponent* Nav3DComponent,
-		const FVector Location,
+		const FVector& Location,
 		const float Radius,
-		const TArray<AActor*> Opponents,
-		const TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes,
+		const TArray<AActor*>& Opponents,
+		const TArray<TEnumAsByte<EObjectTypeQuery>>& ObjectTypes,
 		const ENav3DCoverSearchType SearchType,
 		const bool bPerformLineTraces,
 		FNav3DCoverLocation& CoverLocation,
-		const FFindCoverTaskCompleteDynamicDelegate Complete) :
+		const FFindCoverTaskCompleteDynamicDelegate& Complete) :
 	
 		Nav3DComponent(Nav3DComponent),
 		Location(Location),
@@ -42,17 +42,19 @@ protected:
     FNav3DCoverLocation& CoverLocation;
 	FFindCoverTaskCompleteDynamicDelegate TaskComplete;
 
-	void DoWork() const {
-		Nav3DComponent->ExecuteFindCover(Location, Radius, Opponents, ObjectTypes, SearchType, bPerformLineTraces, CoverLocation);
+	void DoWork() const
+	{
+		Nav3DComponent->ExecuteFindCover(Location, Radius, Opponents, ObjectTypes, SearchType, bPerformLineTraces,
+		                                 CoverLocation);
 
-		AsyncTask(ENamedThreads::GameThread, [=, this]() {
-
+		AsyncTask(ENamedThreads::GameThread, [=, this]()
+		{
 #if WITH_EDITOR
-			if (CoverLocation.Actor && CoverLocation.Location != FVector::ZeroVector) {
-				Nav3DComponent->RequestNavCoverLocationDebugDraw(CoverLocation);	
+			if (CoverLocation.Actor && CoverLocation.Location != FVector::ZeroVector)
+			{
+				Nav3DComponent->RequestNavCoverLocationDebugDraw(CoverLocation);
 			}
 #endif
-
 		});
 
 		TaskComplete.Execute(CoverLocation.Location != FVector::ZeroVector);

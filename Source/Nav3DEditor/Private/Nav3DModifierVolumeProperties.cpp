@@ -4,17 +4,16 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 
-
 #define LOCTEXT_NAMESPACE "Nav3DModifierVolumeProperties"
 
 TSharedRef<IDetailCustomization> FNav3DModifierVolumeProperties::MakeInstance()
 {
-	return MakeShareable( new FNav3DModifierVolumeProperties);
+	return MakeShareable(new FNav3DModifierVolumeProperties);
 }
 
 void FNav3DModifierVolumeProperties::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
-	TSharedPtr<IPropertyHandle> PrimaryTickProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UActorComponent, PrimaryComponentTick));
+	const TSharedPtr<IPropertyHandle> PrimaryTickProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UActorComponent, PrimaryComponentTick));
 
 	if (PrimaryTickProperty->IsValidHandle() && DetailBuilder.HasClassDefaultObject())
 	{

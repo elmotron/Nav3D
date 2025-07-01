@@ -5,7 +5,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogNav3D, Log, All);
 #endif
 
-class FNav3DModule : public IModuleInterface
+class FNav3DModule final : public IModuleInterface
 {
 public:
 	virtual void StartupModule() override;

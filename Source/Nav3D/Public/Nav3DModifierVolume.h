@@ -13,8 +13,7 @@ class NAV3D_API ANav3DModifierVolume : public AVolume
 	GENERATED_BODY()
 
 public:
-
-    ANav3DModifierVolume(const FObjectInitializer& ObjectInitializer);
+	explicit ANav3DModifierVolume(const FObjectInitializer& ObjectInitializer);
 
 	// This value will be added to the calculated path cost for any points that lie within the modifier boundary  
 	UPROPERTY(EditAnywhere, meta=(ClampMin = "0", ClampMax = "100"), Category = "Nav3D")

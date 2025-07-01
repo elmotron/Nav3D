@@ -16,9 +16,9 @@ public:
 		const FNav3DOctreeEdge TargetEdge,
 		const FVector& StartLocation,
 		const FVector& TargetLocation,
-		FNav3DPathFindingConfig& Config,
-        FNav3DPathSharedPtr& Path,
-		const FFindPathTaskCompleteDynamicDelegate Complete) :
+		const FNav3DPathFindingConfig& Config,
+        const FNav3DPathSharedPtr& Path,
+		const FFindPathTaskCompleteDynamicDelegate& Complete) :
 	
 		Nav3DComponent(Nav3DComponent),
 		StartEdge(StartEdge),
@@ -40,42 +40,45 @@ protected:
     FNav3DPathSharedPtr Path;
 	FFindPathTaskCompleteDynamicDelegate TaskComplete;
 
-	void DoWork() const {
+	void DoWork() const
+	{
 		// Capture the local variables
 		TWeakObjectPtr<UNav3DComponent> Comp = Nav3DComponent;
 		FNav3DPathSharedPtr PathPtr = Path;
 		FNav3DPathFindingConfig ConfigCopy = Config;
 		FFindPathTaskCompleteDynamicDelegate TaskCompleteCopy = TaskComplete;
+
 		if (!Comp.IsValid())
 		{
 			UE_LOG(LogTemp, Error, TEXT("Invalid UNav3DComponent, FNav3DFindPathTask abort"));
 			return;
 		}
 
-		double Start = FPlatformTime::Seconds();
+		const double Start = FPlatformTime::Seconds();
 		Nav3DComponent->ExecutePathFinding(StartEdge, TargetEdge, StartLocation, TargetLocation, Config, *Path.Get());
 		Nav3DComponent->AddPathStartLocation(*Path.Get());
-		double End = FPlatformTime::Seconds();
+		const double End = FPlatformTime::Seconds();
 
 #if WITH_EDITORONLY_DATA
-		if (Nav3DComponent->bDebugLogPathfinding) {
+		if (Nav3DComponent->bDebugLogPathfinding)
+		{
 			UE_LOG(LogTemp, Display, TEXT("Pathfinding took %f seconds"), End - Start);
 		}
 #endif
-		
+
 		// Run the path pruning, smoothing and debug draw back on the game thread
-		AsyncTask(ENamedThreads::GameThread, [Comp, PathPtr, ConfigCopy, TaskCompleteCopy]() {
+		AsyncTask(ENamedThreads::GameThread, [Comp, PathPtr, ConfigCopy, TaskCompleteCopy]()
+		{
+			FNav3DPath& PathRef = *PathPtr.Get();
 
-            FNav3DPath& PathRef = *PathPtr.Get();
-
-            Comp->ApplyPathPruning(PathRef, ConfigCopy);
-            Comp->ApplyPathSmoothing(PathRef, ConfigCopy);
+			Comp->ApplyPathPruning(PathRef, ConfigCopy);
+			Comp->ApplyPathSmoothing(PathRef, ConfigCopy);
 
 #if WITH_EDITOR
-            Comp->RequestNavPathDebugDraw(PathRef);
+			Comp->RequestNavPathDebugDraw(PathRef);
 #endif
 
-            TaskCompleteCopy.Execute(PathRef.Points.Num() > 0);
+			TaskCompleteCopy.Execute(PathRef.Points.Num() > 0);
 		});
 	}
 

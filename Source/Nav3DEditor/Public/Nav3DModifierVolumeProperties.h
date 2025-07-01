@@ -6,7 +6,7 @@
 class IDetailLayoutBuilder;
 class ANav3DModifierVolume;
 
-class FNav3DModifierVolumeProperties : public IDetailCustomization
+class FNav3DModifierVolumeProperties final : public IDetailCustomization
 {
 public:
     static TSharedRef<IDetailCustomization> MakeInstance();

@@ -8,6 +8,8 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FFindPathTaskCompleteDynamicDelegate, bool, bP
 DECLARE_DYNAMIC_DELEGATE_OneParam(FFindLineOfSightTaskCompleteDynamicDelegate, bool, bLineOfSightFound);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FFindCoverTaskCompleteDynamicDelegate, bool, bLocationFound);
 
+class ANav3DVolume;
+
 UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="Nav3D Component"))
 class NAV3D_API UNav3DComponent final : public UActorComponent
 {
@@ -16,7 +18,6 @@ class NAV3D_API UNav3DComponent final : public UActorComponent
 	GENERATED_BODY()
 
 public:
-
 	// The heuristic to use for scoring during pathfinding
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Pathfinding")
     ENav3DHeuristic Heuristic = ENav3DHeuristic::Manhattan;
@@ -40,7 +41,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	// Whether to debug draw the pathfinding paths and cover locations 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
-    bool bDebugDrawEnabled;
+    bool bDebugDrawEnabled = true;
 
 	// The navigation path debug colour
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
@@ -52,35 +53,36 @@ public:
 
 	// Whether to log the pathfinding task process in the console. 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
-	bool bDebugLogPathfinding;
+	bool bDebugLogPathfinding = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
-	bool bDebugVisualizePathfinding;
+	bool bDebugVisualizePathfinding = false;
 
 	// Whether to log the find cover task process in the console. 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
-	bool bDebugFindCover;
+	bool bDebugFindCover = false;
 #endif
-	
-	UNav3DComponent(const FObjectInitializer& ObjectInitializer);
+
+	explicit UNav3DComponent(const FObjectInitializer& ObjectInitializer);
+
 	FNav3DPathSharedPtr Nav3DPath;
 	FNav3DCoverLocationSharedPtr Nav3DCoverLocation;
 
 	const ANav3DVolume* GetCurrentVolume() const { return Volume; }
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	void ExecutePathFinding(const FNav3DOctreeEdge& StartEdge, const FNav3DOctreeEdge& TargetEdge, const FVector& StartLocation, const FVector& TargetLocation, FNav3DPathFindingConfig Config, FNav3DPath& Path);
+	void ExecutePathFinding(const FNav3DOctreeEdge& StartEdge, const FNav3DOctreeEdge& TargetEdge, const FVector& StartLocation, const FVector& TargetLocation, FNav3DPathFindingConfig Config, FNav3DPath& Path) const;
 	float HeuristicScore(FNav3DOctreeEdge StartEdge, FNav3DOctreeEdge TargetEdge, FNav3DPathFindingConfig Config) const;
 	void AddPathStartLocation(FNav3DPath& Path) const;
 	void ApplyPathPruning(FNav3DPath& Path, const FNav3DPathFindingConfig Config) const;
-	void ApplyPathLineOfSight(FNav3DPath& Path, AActor* Target, float MinimumDistance) const;
+	void ApplyPathLineOfSight(FNav3DPath& Path, const AActor* Target, float MinimumDistance) const;
 	static void ApplyPathSmoothing(FNav3DPath& Path, FNav3DPathFindingConfig Config);
-	void RequestNavPathDebugDraw(const FNav3DPath Path) const;
-	void RequestNavCoverLocationDebugDraw(const FNav3DCoverLocation CoverLocation) const;
+	void RequestNavPathDebugDraw(const FNav3DPath& Path) const;
+	void RequestNavCoverLocationDebugDraw(const FNav3DCoverLocation& CoverLocation) const;
 	void ExecuteFindCover(
-		const FVector Location,
+		const FVector& Location,
 		const float Radius,
-		const TArray<AActor*> Opponents,
-		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes,
+		const TArray<AActor*>& Opponents,
+		const TArray<TEnumAsByte<EObjectTypeQuery>>& ObjectTypes,
 		const ENav3DCoverSearchType SearchType,
 		const bool bPerformLineTraces,
 		FNav3DCoverLocation& CoverLocation) const;
@@ -134,7 +136,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY()
-	ANav3DVolume* Volume;
+	ANav3DVolume* Volume = nullptr;
 
 	bool VolumeContainsOctree() const;
 	bool VolumeContainsOwner() const;

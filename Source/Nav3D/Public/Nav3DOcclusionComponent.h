@@ -56,5 +56,4 @@ protected:
 
 	TArray<FNav3DOctreeEdge> VolatileEdges;
 	TMap<int32, TArray<FVector>> CoverLocations;
-
 };
