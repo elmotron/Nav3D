@@ -3,7 +3,6 @@
 #include "Nav3DModifierVolume.h"
 #include "Nav3DOcclusionComponent.h"
 #include "Nav3DStructs.h"
-#include "GameFramework/Volume.h"
 #include "Nav3DVolume.generated.h"
 
 DECLARE_DELEGATE(FNav3DUpdateOctreeDelegate);
@@ -12,7 +11,7 @@ DECLARE_DELEGATE(FNav3DUpdateOctreeDelegate);
  *  Volume contains the octree and methods required for 3D navigation
  */
 UCLASS(Blueprintable, meta=(DisplayName = "Nav3D Volume"))
-class NAV3D_API ANav3DVolume : public AVolume
+class NAV3D_API ANav3DVolume : public AActor
 {
 	GENERATED_BODY()
 
@@ -215,13 +214,23 @@ private:
 	TArray<TSet<uint_fast64_t>> Occluded;
 	FVector VolumeOrigin;
 	FVector VolumeExtent;
+
 	FCollisionQueryParams CollisionQueryParams;
+
 	bool bUpdateRequested;
-	const FIntVector Directions[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-	const int32 NodeOffsets[6][4] = {
+
+	const FIntVector Directions[6] =
+	{
+		{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}
+	};
+
+	const int32 NodeOffsets[6][4] =
+	{
 		{0, 4, 2, 6}, {1, 3, 5, 7}, {0, 1, 4, 5}, {2, 3, 6, 7}, {0, 1, 2, 3}, {4, 5, 6, 7}
 	};
-	const int32 LeafOffsets[6][16] = {
+
+	const int32 LeafOffsets[6][16] =
+	{
 		{0, 2, 16, 18, 4, 6, 20, 22, 32, 34, 48, 50, 36, 38, 52, 54},
 		{9, 11, 25, 27, 13, 15, 29, 31, 41, 43, 57, 59, 45, 47, 61, 63},
 		{0, 1, 8, 9, 4, 5, 12, 13, 32, 33, 40, 41, 36, 37, 44, 45},
@@ -229,7 +238,8 @@ private:
 		{0, 1, 8, 9, 2, 3, 10, 11, 16, 17, 24, 25, 18, 19, 26, 27},
 		{36, 37, 44, 45, 38, 39, 46, 47, 52, 53, 60, 61, 54, 55, 62, 63}
 	};
-	const FVector CoverNormals[26] = {
+	const FVector CoverNormals[26] =
+	{
 		{-0.57735f, -0.57735f, -0.57735f}, {-0.7071f, 0.f, -0.7071f}, {-0.57735f, 0.57735f, -0.57735f},
 		{-0.7071f, -0.7071f, 0.f}, {-1.f, 0.f, 0.f}, {-0.7071f, 0.7071f, 0.f},
 		{-0.57735f, -0.57735f, 0.57735f}, {-0.7071f, 0.f, 0.7071f}, {-0.57735f, 0.57735f, 0.57735f},

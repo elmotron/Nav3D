@@ -309,9 +309,9 @@ struct NAV3D_API FNav3DOctree
 	{
 		int Size = 0;
 		Size += Leafs.Num() * sizeof(FNav3DOctreeLeaf);
-		for (int32 I = 0; I < Layers.Num(); I++)
+		for (int32 LayerIndex = 0; LayerIndex < Layers.Num(); LayerIndex++)
 		{
-			Size += Layers[I].Num() * sizeof(FNav3DOctreeNode);
+			Size += Layers[LayerIndex].Num() * sizeof(FNav3DOctreeNode);
 		}
 		return Size;
 	}

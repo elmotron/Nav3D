@@ -24,7 +24,6 @@ ANav3DVolume::ANav3DVolume(const FObjectInitializer& ObjectInitializer)
 	  VolumeOrigin(FVector::ZeroVector),
 	  VolumeExtent(FVector::ZeroVector)
 {
-	GetBrushComponent()->Mobility = EComponentMobility::Movable;
 	PrimaryActorTick.bCanEverTick = true;
 
 	RegisterAllActorTickFunctions(true, false);
@@ -351,6 +350,11 @@ void ANav3DVolume::UpdateVolume()
 	VoxelExponent = FMath::RoundToInt(FMath::Log2(VolumeSize / (VoxelSize * 4)));
 	NumLayers = VoxelExponent + 1;
 
+	ActualVolumeSize = GetActualVolumeSize();
+	VolumeOrigin = GetActorLocation();
+	const float HalfSize = 0.5f * ActualVolumeSize;
+	VolumeExtent = {HalfSize, HalfSize, HalfSize};
+	
 	// Build a list of voxel half-scale sizes for each layer
 	VoxelHalfSizes.Reset();
 	VoxelHalfSizes.Reserve(NumLayers);
@@ -358,16 +362,6 @@ void ANav3DVolume::UpdateVolume()
 	{
 		VoxelHalfSizes.Add(GetVoxelScale(I) * 0.5f);
 	}
-
-	ActualVolumeSize = GetActualVolumeSize();
-	UCubeBuilder* CubeBuilder = Cast<UCubeBuilder>(GEditor->FindBrushBuilder(UCubeBuilder::StaticClass()));
-	CubeBuilder->X = ActualVolumeSize;
-	CubeBuilder->Y = ActualVolumeSize;
-	CubeBuilder->Z = ActualVolumeSize;
-	CubeBuilder->Build(GetWorld(), this);
-
-	const FBox Bounds = GetComponentsBoundingBox(true);
-	Bounds.GetCenterAndExtents(VolumeOrigin, VolumeExtent);
 }
 
 #endif
@@ -470,8 +464,8 @@ FColor ANav3DVolume::GetLayerColour(const int32 LayerIndex) const
 
 FBox ANav3DVolume::GetBoundingBox() const
 {
-	const FBoxSphereBounds Bounds = GetBrushComponent()->CalcBounds(ActorToWorld());
-	return Bounds.GetBox();
+	const FVector HalfExtent = VolumeExtent * 0.5f;
+	return FBox(-HalfExtent, HalfExtent).TransformBy(ActorToWorld());
 }
 
 bool ANav3DVolume::GetNodeLocation(const uint8 LayerIndex, const uint_fast64_t MortonCode, FVector& Location) const
@@ -675,7 +669,7 @@ void ANav3DVolume::Tick(float DeltaTime)
 
 #if WITH_EDITOR
 		}
-		else if (bDebugDrawRequested)
+		else if (true)
 		{
 			DebugDrawOctree();
 			bDebugDrawRequested = false;
