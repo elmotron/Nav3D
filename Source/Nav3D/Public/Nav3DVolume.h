@@ -19,13 +19,12 @@ public:
 	explicit ANav3DVolume(const FObjectInitializer& ObjectInitializer);
 
 	// The size of the volume. This will be approximated in order to support the requested voxel size
-	UPROPERTY(EditAnywhere, meta=(ClampMin = "0.000001"), DisplayName = "Desired Volume Size",
-		Category = "Nav3D|Volume")
-	float VolumeSize = 200.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ClampMin = "0.000001"), DisplayName = "Volume Size", Category = "Nav3D|Volume")
+	float VolumeSize = 256.0f;
 
-	// The minimum size of a leaf voxel in the X, Y and Z dimensions.
-	UPROPERTY(EditAnywhere, meta=(ClampMin = "0.000001"), DisplayName = "Minimum Voxel Size", Category = "Nav3D|Volume")
-	float VoxelSize = 200.0f;
+	// Size of a leaf voxel in the X, Y and Z dimensions.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ClampMin = "0.000001"), DisplayName = "Voxel Size", Category = "Nav3D|Volume")
+	float VoxelSize = 4.0f;
 
 	// Which collision channel to use for object tracing during octree generation
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Generation")
@@ -33,7 +32,7 @@ public:
 
 	// The minimum distance away from any object traces to apply during octree generation
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Generation")
-	float Clearance = 0.f;
+	float Clearance = 0.0f;
 
 	// How often to tick this actor to perform dynamic updates
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Generation")
@@ -45,15 +44,15 @@ public:
 
 	// The minimum object radius to be considered for cover
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Cover Map")
-	float MinimumObjectRadius = 500.0f;
+	float MinimumObjectRadius = 10.0f;
 
 	// Cover locations with the same normal must be at least this distance apart
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Cover Map")
-	float MinimumDensity = 500.0f;
+	float MinimumDensity = 50.0f;
 
 	// Draw distance for debug lines
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
-	float DebugDistance = 50000.f;
+	float DebugDistance = 5000.f;
 
 	// Show the entire volume bounds
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
@@ -63,11 +62,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging")
 	FColor VolumeBoundsColour = FColor(0, 128, 0, 64);
 
-	// Show the octree voxel node bounds
+	// Show the octree layer bounds
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging|Voxels")
 	bool bDisplayLayers = false;
 
-	// Show the octree layer bounds
+	// Show the octree voxel node bounds
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging|Voxels")
 	bool bDisplayLeafs = false;
 
@@ -111,10 +110,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Nav3D|Info")
 	int32 VoxelExponent = 6;
 
-	// The actual volume size calculated to meet the desired volume size and voxel size. Read-only
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Nav3D|Info")
-	float ActualVolumeSize = 200.0f;
-
 	// The number of layers created by the octree generation. Read-only
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Nav3D|Info")
 	uint8 NumLayers = 0;
@@ -130,7 +125,7 @@ public:
 	void FlushDebugDraw() const;
 	void RequestOctreeDebugDraw();
 
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 #endif
 
@@ -139,15 +134,6 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostRegisterAllComponents() override;
 	virtual void PostUnregisterAllComponents() override;
-
-#if WITH_EDITOR
-	virtual void EditorApplyTranslation(const FVector& DeltaTranslation, bool bAltDown, bool bShiftDown,
-	                                    bool bCtrlDown) override;
-	virtual void
-	EditorApplyRotation(const FRotator& DeltaRotation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
-	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown,
-	                              bool bShiftDown, bool bCtrlDown) override;
-#endif
 
 	virtual void Serialize(FArchive& Ar) override;
 	void Initialise();
@@ -159,7 +145,6 @@ public:
 	void AddModifierVolume(ANav3DModifierVolume* ModifierVolume);
 	void LockOctree() { bOctreeLocked = true; }
 	void UnlockOctree() { bOctreeLocked = false; }
-	FBox GetBoundingBox() const;
 	bool GetEdge(const FVector& Location, FNav3DOctreeEdge& Edge);
 	bool FindAccessibleEdge(FVector& Location, FNav3DOctreeEdge& Edge);
 	void GetPathCost(const FVector& Location, float& Cost);
@@ -185,6 +170,13 @@ public:
 	bool CoverMapValid() const { return CoverMap.Nodes.Num() > 0; }
 	bool CoverMapContainsActor(const FName ActorName) const { return CoverMap.Nodes.Contains(ActorName); }
 
+	FBox GetBoundingBox() const
+	{
+		const float HalfSize = 0.5f * VolumeSize;
+		const FVector HalfExtent = {HalfSize, HalfSize, HalfSize};
+		return FBox(-HalfExtent, HalfExtent);
+	}
+	
 	TArray<FVector> GetCoverMapNodeLocations(const FName ActorName, const int32 NormalIndex)
 	{
 		return CoverMap.Nodes[ActorName].Locations[NormalIndex];
@@ -212,8 +204,6 @@ private:
 	TArray<ANav3DModifierVolume*> ModifierVolumes;
 
 	TArray<TSet<uint_fast64_t>> Occluded;
-	FVector VolumeOrigin;
-	FVector VolumeExtent;
 
 	FCollisionQueryParams CollisionQueryParams;
 
@@ -271,7 +261,6 @@ private:
 	bool InDebugRange(const FVector& Location) const;
 	bool GetNodeIndex(uint8 LayerIndex, uint_fast64_t NodeMortonCode, int32& NodeIndex) const;
 	int32 GetInsertIndex(uint8 LayerIndex, uint_fast64_t MortonCode) const;
-	float GetActualVolumeSize() const { return FMath::Pow(2.f, VoxelExponent) * (VoxelSize * 4); }
 	void UpdateNode(FNav3DOctreeEdge Edge);
 	void UpdateLeaf(const FVector& Location, int32 LeafIndex);
 
