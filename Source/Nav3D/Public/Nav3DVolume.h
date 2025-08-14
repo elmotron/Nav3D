@@ -139,44 +139,54 @@ public:
 	void Initialise();
 	bool BuildOctree();
 	void UpdateOctree();
+	void RequestOctreeUpdate(UNav3DOcclusionComponent* OcclusionComponent);
 	void ClearAllDebugNavPaths();
 	void AddDebugNavPath(const FNav3DDebugPath& DebugPath);
 	void AddDebugLocation(const FNav3DDebugLocation& DebugLocation);
 	void AddModifierVolume(ANav3DModifierVolume* ModifierVolume);
+	TArray<ANav3DModifierVolume*> GetModifierVolumes() const { return ModifierVolumes; }
 	void LockOctree() { bOctreeLocked = true; }
 	void UnlockOctree() { bOctreeLocked = false; }
-	bool GetEdge(const FVector& Location, FNav3DOctreeEdge& Edge);
-	bool FindAccessibleEdge(FVector& Location, FNav3DOctreeEdge& Edge);
-	void GetPathCost(const FVector& Location, float& Cost);
-	int32 GetCoverNormalIndex(const FVector& Normal) const;
-	FVector GetCoverNormal(const int32 NormalIndex) const { return CoverNormals[NormalIndex]; }
-	bool GetCoverLocationValid(const FVector& Location) const;
-	void GetVolumeExtents(const FVector& Location, int32 LayerIndex, FIntVector& Extents) const;
-	void GetMortonVoxel(const FVector& Location, int32 LayerIndex, FIntVector& MortonLocation) const;
-	bool OctreeValid() const { return NumLayers > 0 && Octree.Layers.Num() == NumLayers; }
-	const TArray<FNav3DOctreeNode>& GetLayer(uint8 LayerIndex) const { return Octree.Layers[LayerIndex]; };
-	const FNav3DOctreeNode& GetNode(const FNav3DOctreeEdge& Edge) const;
-	bool EdgeNodeIsValid(const FNav3DOctreeEdge& Edge) const;
-	bool GetEdgeLocation(const FNav3DOctreeEdge& Edge, FVector& Location) const;
-	bool GetNodeLocation(uint8 LayerIndex, uint_fast64_t MortonCode, FVector& Location) const;
-	bool GetNodeLocation(FNav3DOctreeEdge Edge, FVector& Location);
+
+	bool IsWithinBounds(const FVector& WorldLocation) const
+	{
+		return GetBoundingBox().TransformBy(GetActorTransform()).IsInside(WorldLocation);
+	}
+
+	bool FindAccessibleEdge(FVector& WorldLocation, FNav3DOctreeEdge& Edge);
+	bool GetEdgeLocation(const FNav3DOctreeEdge& Edge, FVector& OutWorldLocation) const;
+	bool GetEdge(const FVector& WorldLocation, FNav3DOctreeEdge& Edge);
+	TArray<FNav3DOctreeEdge> CalculateVolatileEdges(const AActor* Actor) const;
+
 	void GetAdjacentLeafs(const FNav3DOctreeEdge& Edge, TArray<FNav3DOctreeEdge>& AdjacentEdges) const;
 	void GetAdjacentEdges(const FNav3DOctreeEdge& Edge, TArray<FNav3DOctreeEdge>& AdjacentEdges) const;
-	TArray<ANav3DModifierVolume*> GetModifierVolumes() const { return ModifierVolumes; }
-	float GetVoxelScale(uint8 LayerIndex) const;
-	bool IsWithinBounds(const FVector& Location) const { return GetBoundingBox().IsInside(Location); }
-	TArray<FNav3DOctreeEdge> CalculateVolatileEdges(const AActor* Actor) const;
-	void RequestOctreeUpdate(UNav3DOcclusionComponent* OcclusionComponent);
+
+	bool IsCoverLocationValid(const FVector& WorldLocation) const;
 	bool CoverMapValid() const { return CoverMap.Nodes.Num() > 0; }
 	bool CoverMapContainsActor(const FName ActorName) const { return CoverMap.Nodes.Contains(ActorName); }
 
-	FBox GetBoundingBox() const
+	void GetPathCost(const FVector& WorldLocation, float& Cost);
+
+	int32 GetCoverNormalIndex(const FVector& WorldNormal) const;
+	FVector GetCoverNormal(const int32 NormalIndex) const { return CoverNormals[NormalIndex]; }
+
+	void GetLayerExtents(const FVector& WorldLocation, int32 LayerIndex, FIntVector& Extents) const;
+
+	bool OctreeValid() const { return NumLayers > 0 && Octree.Layers.Num() == NumLayers; }
+	const TArray<FNav3DOctreeNode>& GetLayer(const uint8 LayerIndex) const { return Octree.Layers[LayerIndex]; };
+	const FNav3DOctreeNode& GetNode(const FNav3DOctreeEdge& Edge) const;
+
+	FVector GetVolumeExtents() const
 	{
 		const float HalfSize = 0.5f * VolumeSize;
-		const FVector HalfExtent = {HalfSize, HalfSize, HalfSize};
-		return FBox(-HalfExtent, HalfExtent);
+		return FVector(HalfSize, HalfSize, HalfSize);
 	}
-	
+
+	FBox GetBoundingBox() const
+	{
+		return FBox(FVector::ZeroVector, FVector(VolumeSize, VolumeSize, VolumeSize));
+	}
+
 	TArray<FVector> GetCoverMapNodeLocations(const FName ActorName, const int32 NormalIndex)
 	{
 		return CoverMap.Nodes[ActorName].Locations[NormalIndex];
@@ -263,6 +273,15 @@ private:
 	int32 GetInsertIndex(uint8 LayerIndex, uint_fast64_t MortonCode) const;
 	void UpdateNode(FNav3DOctreeEdge Edge);
 	void UpdateLeaf(const FVector& Location, int32 LeafIndex);
+
+	void GetMortonVoxel(const FVector& Location, int32 LayerIndex, FIntVector& MortonLocation) const;
+
+	bool EdgeNodeIsValid(const FNav3DOctreeEdge& Edge) const;
+
+	bool GetNodeLocation(uint8 LayerIndex, uint_fast64_t MortonCode, FVector& Location) const;
+	bool GetNodeLocation(FNav3DOctreeEdge Edge, FVector& Location);
+
+	float GetVoxelScale(uint8 LayerIndex) const;
 
 #if WITH_EDITOR
 	void DebugDrawOctree();

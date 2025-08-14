@@ -6,7 +6,6 @@
 #include "GameFramework/PlayerController.h"
 #include "DrawDebugHelpers.h"
 #include "Async/ParallelFor.h"
-#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 #if WITH_EDITOR
@@ -189,18 +188,27 @@ void ANav3DVolume::DebugDrawOctree()
 		DebugDrawCoverMapLocations();
 		DebugDrawOcclusionComponentCover();
 	}
+
+	if (bDisplayVolumeBounds)
+	{
+		DebugDrawVolume();	
+	}
 }
 
 void ANav3DVolume::DebugDrawVolume() const
 {
-	if (!GetWorld())
+	if (GetWorld())
 	{
-		return;
-	}
-	if (bDisplayVolumeBounds)
-	{
-		const FBox Box = GetBoundingBox();
-		DebugDrawBoundsMesh(Box.TransformBy(GetActorTransform()), VolumeBoundsColour);
+		const FVector VolumeExtents = GetVolumeExtents();
+		DrawDebugBox(GetWorld(),
+		             GetActorLocation() + VolumeExtents,
+		             VolumeExtents,
+		             GetActorRotation().Quaternion(),
+		             VolumeBoundsColour,
+		             true,
+		             -1.f,
+		             0,
+		             LineScale);
 	}
 }
 
@@ -212,7 +220,14 @@ void ANav3DVolume::DebugDrawEdgeAdjacency() const
 	}
 	for (const auto& Edge : DebugEdges)
 	{
-		DrawDebugLine(GetWorld(), Edge.Start, Edge.End, GetLayerColour(Edge.LayerIndex), true, -1, 0, LineScale);
+		DrawDebugLine(GetWorld(),
+		              Edge.Start,
+		              Edge.End,
+		              GetLayerColour(Edge.LayerIndex),
+		              true,
+		              -1,
+		              0,
+		              LineScale);
 	}
 }
 
@@ -517,23 +532,24 @@ bool ANav3DVolume::GetNodeLocation(const uint8 LayerIndex, const uint_fast64_t M
 	const float Scale = VoxelHalfSizes[LayerIndex] * 2;
 	uint_fast32_t X, Y, Z;
 	morton3D_64_decode(MortonCode, X, Y, Z);
-	Location = Scale * FVector(X, Y, Z) + FVector(Scale * 0.5f);
+	Location = (Scale * FVector(X, Y, Z) + FVector(Scale * 0.5f));
 	return true;
 }
 
-bool ANav3DVolume::GetEdgeLocation(const FNav3DOctreeEdge& Edge, FVector& Location) const
+bool ANav3DVolume::GetEdgeLocation(const FNav3DOctreeEdge& Edge, FVector& OutWorldLocation) const
 {
 	const FNav3DOctreeNode& Node = GetLayer(Edge.GetLayerIndex())[Edge.GetNodeIndex()];
-	GetNodeLocation(Edge.GetLayerIndex(), Node.MortonCode, Location);
+	GetNodeLocation(Edge.GetLayerIndex(), Node.MortonCode, OutWorldLocation);
 	if (Edge.GetLayerIndex() == 0 && Node.FirstChild.IsValid())
 	{
 		uint_fast32_t X, Y, Z;
 		morton3D_64_decode(Edge.GetSubNodeIndex(), X, Y, Z);
 		const float Scale = VoxelHalfSizes[0];
-		Location += FVector(X * Scale * 0.25f, Y * Scale * 0.25f, Z * Scale * 0.25f) - FVector(Scale * 0.375);
+		OutWorldLocation += FVector(X * Scale * 0.25f, Y * Scale * 0.25f, Z * Scale * 0.25f) - FVector(Scale * 0.375);
 		const FNav3DOctreeLeaf& Leaf = Octree.Leafs[Node.FirstChild.NodeIndex];
 		return !Leaf.GetSubNode(Edge.GetSubNodeIndex());
 	}
+	OutWorldLocation = GetActorTransform().TransformPosition(OutWorldLocation);
 	return true;
 }
 
@@ -858,7 +874,9 @@ bool ANav3DVolume::FindEdge(const uint8 LayerIndex, const int32 NodeIndex, const
 			GetNodeLocation(LayerIndex, AdjacentCode, AdjacentLocation);
 
 #if WITH_EDITOR
-			DebugEdges.Add(FNav3DDebugEdge(NodeLocation, AdjacentLocation, LayerIndex));
+			const FVector WorldStart = GetActorTransform().TransformPosition(NodeLocation);
+			const FVector WorldEnd = GetActorTransform().TransformPosition(AdjacentLocation);
+			DebugEdges.Add(FNav3DDebugEdge(WorldStart, WorldEnd, LayerIndex));
 #endif
 
 			return true;
@@ -1093,14 +1111,14 @@ void ANav3DVolume::UpdateCoverMap(const FVector& Location, TArray<FOverlapResult
 			
 			FVector HitPoint;
 			Result.Component->GetClosestPointOnCollision( GetActorTransform().TransformPosition(Location), HitPoint);
-			FVector Normal = (Location - HitPoint).GetSafeNormal(); // TODO do we need to convert this to local space?
+			FVector WorldNormal = (GetActorTransform().TransformPosition(Location) - HitPoint).GetSafeNormal();
 
-			if (Normal == FVector::ZeroVector)
+			if (WorldNormal == FVector::ZeroVector)
 			{
 				continue;
 			}
 
-			const int32 NormalIndex = GetCoverNormalIndex(Normal);
+			const int32 NormalIndex = GetCoverNormalIndex(WorldNormal);
 
 			FNav3DCoverMapNode Node;
 			if (CoverMap.Nodes.Contains(Result.GetActor()->GetFName()))
@@ -1154,8 +1172,8 @@ void ANav3DVolume::UpdateOcclusionComponentCover(const FVector& Location, TArray
 			if (UOcclusionComponent->GetCoverEnabled())
 			{
 				FVector HitPoint;
-				Result.Component->GetClosestPointOnCollision(Location, HitPoint);
-				FVector Normal = (Location - HitPoint).GetSafeNormal(); // TODO local space?
+				Result.Component->GetClosestPointOnCollision(GetActorTransform().TransformPosition(Location), HitPoint);
+				FVector Normal = (Location - HitPoint).GetSafeNormal();
 				if (Normal == FVector::ZeroVector)
 				{
 					continue;
@@ -1186,12 +1204,12 @@ void ANav3DVolume::UpdateOcclusionComponentCover(const FVector& Location, TArray
 	}
 }
 
-int32 ANav3DVolume::GetCoverNormalIndex(const FVector& Normal) const
+int32 ANav3DVolume::GetCoverNormalIndex(const FVector& WorldNormal) const
 {
 	TArray<float> DotProducts;
 	for (int32 I = 0; I < 26; I++)
 	{
-		DotProducts.Add(FVector::DotProduct(Normal, CoverNormals[I]));
+		DotProducts.Add(FVector::DotProduct(WorldNormal, CoverNormals[I]));
 	}
 	int32 CoverNormalIndex;
 	float MaxDotProduct;
@@ -1199,12 +1217,13 @@ int32 ANav3DVolume::GetCoverNormalIndex(const FVector& Normal) const
 	return CoverNormalIndex;
 }
 
-void ANav3DVolume::GetVolumeExtents(const FVector& Location, const int32 LayerIndex, FIntVector& Extents) const
+void ANav3DVolume::GetLayerExtents(const FVector& WorldLocation, const int32 LayerIndex, FIntVector& Extents) const
 {
+	const FVector LocalLocation = GetActorTransform().InverseTransformPosition(WorldLocation);
 	const float Scale = VoxelHalfSizes[LayerIndex];
-	Extents.X = FMath::FloorToInt(Location.X / Scale);
-	Extents.Y = FMath::FloorToInt(Location.Y / Scale);
-	Extents.Z = FMath::FloorToInt(Location.Z / Scale);
+	Extents.X = FMath::FloorToInt(LocalLocation.X / Scale);
+	Extents.Y = FMath::FloorToInt(LocalLocation.Y / Scale);
+	Extents.Z = FMath::FloorToInt(LocalLocation.Z / Scale);
 }
 
 void ANav3DVolume::GetMortonVoxel(const FVector& Location, const int32 LayerIndex, FIntVector& MortonLocation) const
@@ -1215,8 +1234,9 @@ void ANav3DVolume::GetMortonVoxel(const FVector& Location, const int32 LayerInde
 	MortonLocation.Z = FMath::FloorToInt(Location.Z / Size);
 }
 
-bool ANav3DVolume::FindAccessibleEdge(FVector& Location, FNav3DOctreeEdge& Edge)
+bool ANav3DVolume::FindAccessibleEdge(FVector& WorldLocation, FNav3DOctreeEdge& Edge)
 {
+	const FVector Location = GetActorTransform().InverseTransformPosition(WorldLocation);
 	for (int32 I = 1; I < 4; I++)
 	{
 		for (int32 J = 0; J < 6; J++)
@@ -1224,7 +1244,7 @@ bool ANav3DVolume::FindAccessibleEdge(FVector& Location, FNav3DOctreeEdge& Edge)
 			const FVector OffsetLocation = Location + FVector(Directions[J] * Clearance * I);
 			if (GetEdge(OffsetLocation, Edge))
 			{
-				Location = OffsetLocation;
+				WorldLocation = GetActorTransform().TransformPosition(OffsetLocation);
 				return true;
 			}
 		}
@@ -1232,7 +1252,7 @@ bool ANav3DVolume::FindAccessibleEdge(FVector& Location, FNav3DOctreeEdge& Edge)
 	return false;
 }
 
-void ANav3DVolume::GetPathCost(const FVector& Location, float& Cost)
+void ANav3DVolume::GetPathCost(const FVector& WorldLocation, float& Cost)
 {
 	Cost = 1.0f;
 	if (ModifierVolumes.Num() == 0)
@@ -1245,14 +1265,14 @@ void ANav3DVolume::GetPathCost(const FVector& Location, float& Cost)
 		{
 			continue;
 		}
-		if (ModifierVolume->GetBoundingBox().IsInside(Location))
+		if (ModifierVolume->GetBoundingBox().IsInside(WorldLocation))
 		{
 			Cost += ModifierVolume->GetPathCost();
 		}
 	}
 }
 
-bool ANav3DVolume::GetCoverLocationValid(const FVector& Location) const
+bool ANav3DVolume::IsCoverLocationValid(const FVector& WorldLocation) const
 {
 	if (ModifierVolumes.Num() == 0)
 	{
@@ -1264,7 +1284,7 @@ bool ANav3DVolume::GetCoverLocationValid(const FVector& Location) const
 		{
 			continue;
 		}
-		if (ModifierVolume->GetBoundingBox().IsInside(Location) && ModifierVolume->bInvalidateCoverLocations)
+		if (ModifierVolume->GetBoundingBox().IsInside(WorldLocation) && ModifierVolume->bInvalidateCoverLocations)
 		{
 			return false;
 		}
@@ -1272,8 +1292,10 @@ bool ANav3DVolume::GetCoverLocationValid(const FVector& Location) const
 	return true;
 }
 
-bool ANav3DVolume::GetEdge(const FVector& Location, FNav3DOctreeEdge& Edge)
+bool ANav3DVolume::GetEdge(const FVector& WorldLocation, FNav3DOctreeEdge& Edge)
 {
+	const FVector Location = GetActorTransform().InverseTransformPosition(WorldLocation);
+
 	if (!IsWithinBounds(Location))
 	{
 		return false;
@@ -1653,29 +1675,52 @@ bool ANav3DVolume::GetNodeLocation(const FNav3DOctreeEdge Edge, FVector& Locatio
 
 void ANav3DVolume::DebugDrawVoxel(const FVector& Location, const FVector& Extent, const FColor Colour) const
 {
-	if (!InDebugRange(Location))
+	const FVector WorldLocation = GetActorTransform().TransformPosition(Location);
+	if (!InDebugRange(WorldLocation))
 	{
 		return;
 	}
-	DrawDebugBox(GetWorld(), Location, Extent, FQuat::Identity, Colour, true, -1.f, 0, LineScale);
+	DrawDebugBox(GetWorld(),
+	             WorldLocation,
+	             Extent,
+	             GetActorRotation().Quaternion(),
+	             Colour,
+	             true,
+	             -1.f,
+	             0,
+	             LineScale);
 }
 
 void ANav3DVolume::DebugDrawSphere(const FVector& Location, const float Radius, const FColor Colour) const
 {
-	if (!InDebugRange(Location))
+	const FVector WorldLocation = GetActorTransform().TransformPosition(Location);
+	if (!InDebugRange(WorldLocation))
 	{
 		return;
 	}
-	DrawDebugSphere(GetWorld(), Location, Radius, 12, Colour, true, -1.f, 0, LineScale);
+	DrawDebugSphere(GetWorld(),
+	                WorldLocation,
+	                Radius,
+	                12,
+	                Colour,
+	                true,
+	                -1.f,
+	                0,
+	                LineScale);
 }
 
 void ANav3DVolume::DebugDrawBoundsMesh(const FBox& Box, const FColor Colour) const
 {
+	// TODO world transform on verts
 	const TArray<FVector> Vertices =
 	{
-		{Box.Min.X, Box.Min.Y, Box.Min.Z}, {Box.Max.X, Box.Min.Y, Box.Min.Z}, {Box.Max.X, Box.Min.Y, Box.Max.Z},
+		{Box.Min.X, Box.Min.Y, Box.Min.Z},
+		{Box.Max.X, Box.Min.Y, Box.Min.Z},
+		{Box.Max.X, Box.Min.Y, Box.Max.Z},
 		{Box.Min.X, Box.Min.Y, Box.Max.Z},
-		{Box.Min.X, Box.Max.Y, Box.Min.Z}, {Box.Max.X, Box.Max.Y, Box.Min.Z}, {Box.Max.X, Box.Max.Y, Box.Max.Z},
+		{Box.Min.X, Box.Max.Y, Box.Min.Z},
+		{Box.Max.X, Box.Max.Y, Box.Min.Z},
+		{Box.Max.X, Box.Max.Y, Box.Max.Z},
 		{Box.Min.X, Box.Max.Y, Box.Max.Z}
 	};
 	const TArray<int32> Indices =
@@ -1685,10 +1730,10 @@ void ANav3DVolume::DebugDrawBoundsMesh(const FBox& Box, const FColor Colour) con
 	DrawDebugMesh(GetWorld(), Vertices, Indices, Colour, true, -1.0, 0);
 }
 
-// TODO world space
 void ANav3DVolume::DebugDrawMortonCode(const FVector& Location, const FString& String, const FColor Colour) const
 {
-	if (!InDebugRange(Location))
+	const FVector WorldLocation = GetActorTransform().TransformPosition(Location);
+	if (!InDebugRange(WorldLocation))
 	{
 		return;
 	}
@@ -1705,10 +1750,10 @@ void ANav3DVolume::DebugDrawMortonCode(const FVector& Location, const FString& S
 	const FColor BoxColour = FColor(Colour.R * 0.25f, Colour.G * 0.25f, Colour.B * 0.25f, Colour.A);
 	const TArray<FVector> Vertices =
 	{
-		{Location.X + 1.f, Location.Y - Extents.Y, Location.Z + Extents.Z},
-		{Location.X + 1.f, Location.Y + Extents.Y, Location.Z + Extents.Z},
-		{Location.X + 1.f, Location.Y + Extents.Y, Location.Z - Extents.Z},
-		{Location.X + 1.f, Location.Y - Extents.Y, Location.Z - Extents.Z}
+		{WorldLocation.X + 1.f, WorldLocation.Y - Extents.Y, WorldLocation.Z + Extents.Z},
+		{WorldLocation.X + 1.f, WorldLocation.Y + Extents.Y, WorldLocation.Z + Extents.Z},
+		{WorldLocation.X + 1.f, WorldLocation.Y + Extents.Y, WorldLocation.Z - Extents.Z},
+		{WorldLocation.X + 1.f, WorldLocation.Y - Extents.Y, WorldLocation.Z - Extents.Z}
 	};
 	const TArray<int32> Indices = {0, 1, 2, 0, 2, 3};
 	DrawDebugMesh(GetWorld(), Vertices, Indices, BoxColour, true, -1.0, 0);
@@ -1772,8 +1817,8 @@ void ANav3DVolume::DebugDrawMortonCode(const FVector& Location, const FString& S
 			}
 			const float YOffset = (String.Len() * Scale.Y + (String.Len() - 1) * Tracking) * -0.5f + (Scale.Y +
 				Tracking) * I;
-			Start = Start * Scale + FVector(0, YOffset, 0) + Location;
-			End = End * Scale + FVector(0, YOffset, 0) + Location;
+			Start = Start * Scale + FVector(0, YOffset, 0) + WorldLocation;
+			End = End * Scale + FVector(0, YOffset, 0) + WorldLocation;
 			DrawDebugLine(GetWorld(), Start, End, Colour, true, -1.0f, 0, ScaleFactor);
 		}
 	}
