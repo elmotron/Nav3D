@@ -201,7 +201,7 @@ void ANav3DVolume::DebugDrawVolume() const
 	{
 		const FVector VolumeExtents = GetVolumeExtents();
 		DrawDebugBox(GetWorld(),
-		             GetActorLocation() + VolumeExtents,
+		             GetActorTransform().TransformPosition(VolumeExtents),
 		             VolumeExtents,
 		             GetActorRotation().Quaternion(),
 		             VolumeBoundsColour,
@@ -723,7 +723,7 @@ void ANav3DVolume::Serialize(FArchive& Ar)
 
 float ANav3DVolume::GetVoxelScale(const uint8 LayerIndex) const
 {
-	return VolumeSize / FMath::Pow(2.0f, VoxelExponent) * FMath::Pow(2.0f, LayerIndex + 1);
+	return (VolumeSize * 0.5f) / FMath::Pow(2.0f, VoxelExponent) * FMath::Pow(2.0f, LayerIndex + 1);
 }
 
 int32 ANav3DVolume::GetLayerNodeCount(const uint8 LayerIndex) const
