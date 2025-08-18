@@ -70,8 +70,8 @@ public:
 
 	const ANav3DVolume* GetCurrentVolume() const { return Volume; }
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	void ExecutePathFinding(const FNav3DOctreeEdge& StartEdge, const FNav3DOctreeEdge& TargetEdge, const FVector& StartLocation, const FVector& TargetLocation, FNav3DPathFindingConfig Config, FNav3DPath& Path) const;
-	float HeuristicScore(FNav3DOctreeEdge StartEdge, FNav3DOctreeEdge TargetEdge, FNav3DPathFindingConfig Config) const;
+	void ExecutePathFinding(const FNav3DLink& StartLink, const FNav3DLink& TargetLink, const FVector& StartLocation, const FVector& TargetLocation, FNav3DPathFindingConfig Config, FNav3DPath& Path) const;
+	float HeuristicScore(FNav3DLink StartLink, FNav3DLink TargetLink, FNav3DPathFindingConfig Config) const;
 	void AddPathStartLocation(FNav3DPath& Path) const;
 	void ApplyPathPruning(FNav3DPath& Path, const FNav3DPathFindingConfig Config) const;
 	void ApplyPathLineOfSight(FNav3DPath& Path, const AActor* Target, float MinimumDistance) const;

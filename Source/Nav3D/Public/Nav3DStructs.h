@@ -98,8 +98,8 @@ enum class ENav3DPathFindingCallResult: uint8
 		ToolTip="Find path unnecessary. Target is already reachable."),
 	NoVolume UMETA(DisplayName="Volume not found", ToolTip="Nav3D component owner is not inside a Nav3D volume."),
 	NoOctree UMETA(DisplayName="Octree not found", ToolTip="Nav3D octree has not been built."),
-	NoStart UMETA(DisplayName="Start edge not found", ToolTip="Failed to find start edge."),
-	NoTarget UMETA(DisplayName="Target edge not found", ToolTip="Failed to find target edge.")
+	NoStart UMETA(DisplayName="Start link not found", ToolTip="Failed to find start link."),
+	NoTarget UMETA(DisplayName="Target link not found", ToolTip="Failed to find target link.")
 };
 
 UENUM()
@@ -110,8 +110,8 @@ enum class ENav3DFindLineOfSightCallResult: uint8
 		ToolTip="Find Line of sight unnecessary. Target is already visible."),
 	NoVolume UMETA(DisplayName="Volume not found", ToolTip="Nav3D component owner is not inside a Nav3D volume."),
 	NoOctree UMETA(DisplayName="Octree not found", ToolTip="Nav3D octree has not been built."),
-	NoStart UMETA(DisplayName="Start edge not found", ToolTip="Failed to find start edge."),
-	NoTarget UMETA(DisplayName="Target edge not found", ToolTip="Failed to find target edge.")
+	NoStart UMETA(DisplayName="Start link not found", ToolTip="Failed to find start link."),
+	NoTarget UMETA(DisplayName="Target link not found", ToolTip="Failed to find target link.")
 };
 
 UENUM()
@@ -172,20 +172,20 @@ struct NAV3D_API FNav3DPathFindingConfig
 	}
 };
 
-struct NAV3D_API FNav3DOctreeEdge
+struct NAV3D_API FNav3DLink
 {
 	uint8 LayerIndex : 4;
 	uint_fast32_t NodeIndex : 22;
 	uint8 SubNodeIndex : 6;
 
-	FNav3DOctreeEdge() :
+	FNav3DLink() :
 		LayerIndex(15),
 		NodeIndex(0),
 		SubNodeIndex(0)
 	{
 	}
 
-	FNav3DOctreeEdge(const uint8 LayerIndex, const uint_fast32_t NodeIndex, const uint8 SubNodeIndex) :
+	FNav3DLink(const uint8 LayerIndex, const uint_fast32_t NodeIndex, const uint8 SubNodeIndex) :
 		LayerIndex(LayerIndex),
 		NodeIndex(NodeIndex),
 		SubNodeIndex(SubNodeIndex)
@@ -204,35 +204,35 @@ struct NAV3D_API FNav3DOctreeEdge
 	bool IsValid() const { return LayerIndex != 15; }
 	void Invalidate() { LayerIndex = 15; }
 
-	bool operator==(const FNav3DOctreeEdge& OtherEdge) const
+	bool operator==(const FNav3DLink& Other) const
 	{
-		return LayerIndex == OtherEdge.LayerIndex && NodeIndex == OtherEdge.NodeIndex && SubNodeIndex == OtherEdge.
+		return LayerIndex == Other.LayerIndex && NodeIndex == Other.NodeIndex && SubNodeIndex == Other.
 			SubNodeIndex;
 	}
 
-	bool operator!=(const FNav3DOctreeEdge& OtherEdge) const { return !(*this == OtherEdge); }
-	static FNav3DOctreeEdge GetInvalidEdge() { return FNav3DOctreeEdge(15, 0, 0); }
+	bool operator!=(const FNav3DLink& Other) const { return !(*this == Other); }
+	static FNav3DLink GetInvalidLink() { return FNav3DLink(15, 0, 0); }
 	FString ToString() const { return FString::Printf(TEXT("%u:%u:%u"), LayerIndex, NodeIndex, SubNodeIndex); }
 };
 
-FORCEINLINE uint32 GetTypeHash(const FNav3DOctreeEdge& Edge)
+FORCEINLINE uint32 GetTypeHash(const FNav3DLink& Link)
 {
 	uint32 Hash = 0;
 
-	Hash = HashCombine(Hash, GetTypeHash(Edge.LayerIndex));
-	Hash = HashCombine(Hash, GetTypeHash(Edge.NodeIndex));
-	Hash = HashCombine(Hash, GetTypeHash(Edge.SubNodeIndex));
+	Hash = HashCombine(Hash, GetTypeHash(Link.LayerIndex));
+	Hash = HashCombine(Hash, GetTypeHash(Link.NodeIndex));
+	Hash = HashCombine(Hash, GetTypeHash(Link.SubNodeIndex));
 
 	return Hash;
 }
 
-FORCEINLINE FArchive& operator <<(FArchive& Archive, FNav3DOctreeEdge& Edge)
+FORCEINLINE FArchive& operator <<(FArchive& Archive, FNav3DLink& Link)
 {
-	Archive.Serialize(&Edge, sizeof(FNav3DOctreeEdge));
+	Archive.Serialize(&Link, sizeof(FNav3DLink));
 	return Archive;
 }
 
-struct NAV3D_API FNav3DOctreeLeaf
+struct NAV3D_API FNav3DLeaf
 {
 	uint_fast64_t SubNodes = 0;
 
@@ -257,30 +257,30 @@ struct NAV3D_API FNav3DOctreeLeaf
 	bool IsEmpty() const { return SubNodes == 0; }
 };
 
-FORCEINLINE FArchive& operator<<(FArchive& Archive, FNav3DOctreeLeaf& Leaf)
+FORCEINLINE FArchive& operator<<(FArchive& Archive, FNav3DLeaf& Leaf)
 {
 	Archive << reinterpret_cast<uint64&>(Leaf.SubNodes);
 	return Archive;
 }
 
-struct NAV3D_API FNav3DOctreeNode
+struct NAV3D_API FNav3DNode
 {
 	uint_fast64_t MortonCode;
-	FNav3DOctreeEdge Parent;
-	FNav3DOctreeEdge FirstChild;
-	FNav3DOctreeEdge AdjacentEdges[6];
+	FNav3DLink Parent;
+	FNav3DLink FirstChild;
+	FNav3DLink Adjacent[6];
 
-	FNav3DOctreeNode() :
+	FNav3DNode() :
 		MortonCode(0),
-		Parent(FNav3DOctreeEdge::GetInvalidEdge()),
-		FirstChild(FNav3DOctreeEdge::GetInvalidEdge())
+		Parent(FNav3DLink::GetInvalidLink()),
+		FirstChild(FNav3DLink::GetInvalidLink())
 	{
 	}
 
 	bool HasChildren() const { return FirstChild.IsValid(); }
 };
 
-FORCEINLINE FArchive& operator <<(FArchive& Ar, FNav3DOctreeNode& Node)
+FORCEINLINE FArchive& operator <<(FArchive& Ar, FNav3DNode& Node)
 {
 	Ar << reinterpret_cast<uint64&>(Node.MortonCode);
 	Ar << Node.Parent;
@@ -288,7 +288,7 @@ FORCEINLINE FArchive& operator <<(FArchive& Ar, FNav3DOctreeNode& Node)
 
 	for (int32 I = 0; I < 6; I++)
 	{
-		Ar << Node.AdjacentEdges[I];
+		Ar << Node.Adjacent[I];
 	}
 
 	return Ar;
@@ -296,8 +296,8 @@ FORCEINLINE FArchive& operator <<(FArchive& Ar, FNav3DOctreeNode& Node)
 
 struct NAV3D_API FNav3DOctree
 {
-	TArray<TArray<FNav3DOctreeNode>> Layers;
-	TArray<FNav3DOctreeLeaf> Leafs;
+	TArray<TArray<FNav3DNode>> Layers;
+	TArray<FNav3DLeaf> Leafs;
 
 	void Reset()
 	{
@@ -308,10 +308,10 @@ struct NAV3D_API FNav3DOctree
 	int32 GetSize()
 	{
 		int Size = 0;
-		Size += Leafs.Num() * sizeof(FNav3DOctreeLeaf);
+		Size += Leafs.Num() * sizeof(FNav3DLeaf);
 		for (int32 LayerIndex = 0; LayerIndex < Layers.Num(); LayerIndex++)
 		{
-			Size += Layers[LayerIndex].Num() * sizeof(FNav3DOctreeNode);
+			Size += Layers[LayerIndex].Num() * sizeof(FNav3DNode);
 		}
 		return Size;
 	}
@@ -402,20 +402,20 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FNav3DCoverMap& CoverMap)
 	return Ar;
 }
 
-struct NAV3D_API FNav3DDebugEdge
+struct NAV3D_API FNav3DDebugLink
 {
 	FVector Start;
 	FVector End;
 	uint8 LayerIndex;
 
-	FNav3DDebugEdge() :
+	FNav3DDebugLink() :
 		Start(FVector::ZeroVector),
 		End(FVector::ZeroVector),
 		LayerIndex(0)
 	{
 	}
 
-	FNav3DDebugEdge(const FVector& Start, const FVector& End, const uint8 LayerIndex) :
+	FNav3DDebugLink(const FVector& Start, const FVector& End, const uint8 LayerIndex) :
 		Start(Start),
 		End(End),
 		LayerIndex(LayerIndex)
@@ -423,10 +423,10 @@ struct NAV3D_API FNav3DDebugEdge
 	}
 };
 
-FORCEINLINE FArchive& operator<<(FArchive& Ar, FNav3DDebugEdge& DebugEdge)
+FORCEINLINE FArchive& operator<<(FArchive& Ar, FNav3DDebugLink& DebugLink)
 {
-	Ar << DebugEdge.Start;
-	Ar << DebugEdge.End;
-	Ar << DebugEdge.LayerIndex;
+	Ar << DebugLink.Start;
+	Ar << DebugLink.End;
+	Ar << DebugLink.LayerIndex;
 	return Ar;
 }

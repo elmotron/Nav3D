@@ -31,8 +31,8 @@ public:
 	void SetOcclusionEnabled(bool bOcclusionEnabled);
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-    bool UpdateVolatileEdges();
-	TArray<FNav3DOctreeEdge>& GetVolatileEdges();
+    bool UpdateVolatileLinks();
+	TArray<FNav3DLink>& GetVolatileLinks();
 	void ResetCoverLocations() { CoverLocations.Reset(); }
 	bool GetCoverEnabled() const { return bEnableCover; }
 	bool GetCoverLocations(const int32 NormalIndex, TArray<FVector>& Locations);
@@ -54,6 +54,6 @@ protected:
 	UPROPERTY()
 	bool bEnabled = true;
 
-	TArray<FNav3DOctreeEdge> VolatileEdges;
+	TArray<FNav3DLink> VolatileLinks;
 	TMap<int32, TArray<FVector>> CoverLocations;
 };

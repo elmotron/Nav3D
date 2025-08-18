@@ -8,7 +8,7 @@ UNav3DOcclusionComponent::UNav3DOcclusionComponent()
 	bWantsInitializeComponent = true;
 }
 
-bool UNav3DOcclusionComponent::UpdateVolatileEdges()
+bool UNav3DOcclusionComponent::UpdateVolatileLinks()
 {
 	if (!bEnabled)
 	{
@@ -22,13 +22,13 @@ bool UNav3DOcclusionComponent::UpdateVolatileEdges()
 	{
 		return false;
 	}
-	VolatileEdges = Volume->CalculateVolatileEdges(GetOwner());
+	VolatileLinks = Volume->CalculateVolatileLinks(GetOwner());
 	return true;
 }
 
-TArray<FNav3DOctreeEdge>& UNav3DOcclusionComponent::GetVolatileEdges()
+TArray<FNav3DLink>& UNav3DOcclusionComponent::GetVolatileLinks()
 {
-	return VolatileEdges;
+	return VolatileLinks;
 }
 
 void UNav3DOcclusionComponent::BeginPlay()

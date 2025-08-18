@@ -73,8 +73,8 @@ void UNav3DComponent::FindPath(
 	const FFindPathTaskCompleteDynamicDelegate OnComplete,
 	ENav3DPathFindingCallResult& Result)
 {
-	FNav3DOctreeEdge StartEdge;
-	FNav3DOctreeEdge TargetEdge;
+	FNav3DLink StartLink;
+	FNav3DLink TargetLink;
 	FVector LegalStart = StartLocation;
 	FVector LegalTarget = TargetLocation;
 
@@ -140,19 +140,19 @@ void UNav3DComponent::FindPath(
 		}
 	}
 
-	if (!Volume->GetEdge(StartLocation, StartEdge))
+	if (!Volume->GetLink(StartLocation, StartLink))
 	{
 		Result = ENav3DPathFindingCallResult::NoStart;
 
 #if WITH_EDITOR
-		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find start edge. Searching nearby..."),
+		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find start link. Searching nearby..."),
 		                                 *GetOwner()->GetName());
 #endif
 
-		if (!Volume->FindAccessibleEdge(LegalStart, StartEdge))
+		if (!Volume->FindAccessibleLink(LegalStart, StartLink))
 		{
 #if WITH_EDITOR
-			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible adjacent edge found"),
+			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible adjacent link found"),
 			                                 *GetOwner()->GetName());
 #endif
 
@@ -165,19 +165,19 @@ void UNav3DComponent::FindPath(
 #endif
 	}
 
-	if (!Volume->GetEdge(TargetLocation, TargetEdge))
+	if (!Volume->GetLink(TargetLocation, TargetLink))
 	{
 		Result = ENav3DPathFindingCallResult::NoTarget;
 
 #if WITH_EDITOR
-		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find target edge. Searching nearby..."),
+		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find target link. Searching nearby..."),
 		                                 *GetOwner()->GetName());
 #endif
 
-		if (!Volume->FindAccessibleEdge(LegalTarget, TargetEdge))
+		if (!Volume->FindAccessibleLink(LegalTarget, TargetLink))
 		{
 #if WITH_EDITOR
-			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible edges found near target"),
+			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible links found near target"),
 			                                 *GetOwner()->GetName());
 #endif
 
@@ -199,8 +199,8 @@ void UNav3DComponent::FindPath(
 
 	(new FAutoDeleteAsyncTask<FNav3DFindPathTask>(
 		this,
-		StartEdge,
-		TargetEdge,
+		StartLink,
+		TargetLink,
 		LegalStart,
 		LegalTarget,
 		Config,
@@ -222,13 +222,16 @@ void UNav3DComponent::FindLineOfSight(
 	const FFindLineOfSightTaskCompleteDynamicDelegate OnComplete,
 	ENav3DFindLineOfSightCallResult& Result)
 {
-	FNav3DOctreeEdge StartEdge;
-	FNav3DOctreeEdge TargetEdge;
+	FNav3DLink StartLink;
+	FNav3DLink TargetLink;
 	FVector LegalStart = StartLocation;
 	FVector LegalTarget = TargetActor->GetActorLocation();
 
 	// Error checking before task start
-	if (!VolumeContainsOctree() || !VolumeContainsOwner()) FindVolume();
+	if (!VolumeContainsOctree() || !VolumeContainsOwner())
+	{
+		FindVolume();
+	}
 	if (!VolumeContainsOwner())
 	{
 		Result = ENav3DFindLineOfSightCallResult::NoVolume;
@@ -289,19 +292,19 @@ void UNav3DComponent::FindLineOfSight(
 		}
 	}
 
-	if (!Volume->GetEdge(StartLocation, StartEdge))
+	if (!Volume->GetLink(StartLocation, StartLink))
 	{
 		Result = ENav3DFindLineOfSightCallResult::NoStart;
 
 #if WITH_EDITOR
-		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find start edge. Searching nearby..."),
+		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find start link. Searching nearby..."),
 		                                 *GetOwner()->GetName());
 #endif
 
-		if (!Volume->FindAccessibleEdge(LegalStart, StartEdge))
+		if (!Volume->FindAccessibleLink(LegalStart, StartLink))
 		{
 #if WITH_EDITOR
-			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible adjacent edge found"),
+			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible adjacent link found"),
 			                                 *GetOwner()->GetName());
 #endif
 
@@ -314,19 +317,19 @@ void UNav3DComponent::FindLineOfSight(
 #endif
 	}
 
-	if (!Volume->GetEdge(LegalTarget, TargetEdge))
+	if (!Volume->GetLink(LegalTarget, TargetLink))
 	{
 		Result = ENav3DFindLineOfSightCallResult::NoTarget;
 
 #if WITH_EDITOR
-		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find target edge. Searching nearby..."),
+		if (bDebugLogPathfinding) UE_LOG(LogTemp, Warning, TEXT("%s: Failed to find target link. Searching nearby..."),
 		                                 *GetOwner()->GetName());
 #endif
 
-		if (!Volume->FindAccessibleEdge(LegalTarget, TargetEdge))
+		if (!Volume->FindAccessibleLink(LegalTarget, TargetLink))
 		{
 #if WITH_EDITOR
-			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible edges found near target"),
+			if (bDebugLogPathfinding) UE_LOG(LogTemp, Error, TEXT("%s: No accessible links found near target"),
 			                                 *GetOwner()->GetName());
 #endif
 
@@ -349,8 +352,8 @@ void UNav3DComponent::FindLineOfSight(
 
 	(new FAutoDeleteAsyncTask<FNav3DFindLineOfSightTask>(
 		this,
-		StartEdge,
-		TargetEdge,
+		StartLink,
+		TargetLink,
 		LegalStart,
 		TargetActor,
 		MinimumDistance,
@@ -629,75 +632,75 @@ void UNav3DComponent::ExecuteFindCover(
 }
 
 void UNav3DComponent::ExecutePathFinding(
-	const FNav3DOctreeEdge& StartEdge,
-	const FNav3DOctreeEdge& TargetEdge,
+	const FNav3DLink& StartLink,
+	const FNav3DLink& TargetLink,
 	const FVector& StartLocation,
 	const FVector& TargetLocation,
 	FNav3DPathFindingConfig Config,
 	FNav3DPath& Path) const
 {
 	// Initialise
-	TSet<FNav3DOctreeEdge> OpenSet;
-	TSet<FNav3DOctreeEdge> ClosedSet;
-	TMap<FNav3DOctreeEdge, FNav3DOctreeEdge> Parent;
-	TMap<FNav3DOctreeEdge, float> G;
-	TMap<FNav3DOctreeEdge, float> F;
-	FNav3DOctreeEdge CurrentEdge = FNav3DOctreeEdge();
+	TSet<FNav3DLink> OpenSet;
+	TSet<FNav3DLink> ClosedSet;
+	TMap<FNav3DLink, FNav3DLink> Parent;
+	TMap<FNav3DLink, float> G;
+	TMap<FNav3DLink, float> F;
+	FNav3DLink CurrentLink = FNav3DLink();
 	Path.Empty();
 
 	// Greedy A*
-	OpenSet.Add(StartEdge);
-	Parent.Add(StartEdge, StartEdge);
-	G.Add(StartEdge, 0);
-	F.Add(StartEdge, HeuristicScore(StartEdge, TargetEdge, Config));
+	OpenSet.Add(StartLink);
+	Parent.Add(StartLink, StartLink);
+	G.Add(StartLink, 0);
+	F.Add(StartLink, HeuristicScore(StartLink, TargetLink, Config));
 	int32 I = 0;
 	while (OpenSet.Num() > 0)
 	{
 		float LowestScore = FLT_MAX;
-		for (FNav3DOctreeEdge& Edge : OpenSet)
+		for (FNav3DLink& Link : OpenSet)
 		{
-			if (!F.Contains(Edge) || F[Edge] < LowestScore)
+			if (!F.Contains(Link) || F[Link] < LowestScore)
 			{
-				LowestScore = F[Edge];
-				CurrentEdge = Edge;
+				LowestScore = F[Link];
+				CurrentLink = Link;
 			}
 		}
-		OpenSet.Remove(CurrentEdge);
-		ClosedSet.Add(CurrentEdge);
+		OpenSet.Remove(CurrentLink);
+		ClosedSet.Add(CurrentLink);
 
 #if WITH_EDITOR
 		if (bDebugVisualizePathfinding)
 		{
-			AsyncTask(ENamedThreads::GameThread, [this, CurrentEdge]()
+			AsyncTask(ENamedThreads::GameThread, [this, CurrentLink]()
 			{
 				if (bDebugVisualizePathfinding)
 				{
 					FVector Location;
-					Volume->GetEdgeLocation(CurrentEdge, Location);
+					Volume->GetLinkLocation(CurrentLink, Location);
 					DrawDebugSphere(GetWorld(), Location, 10.f, 12, FColor::Red, false, 0.0f);
 				}
 			});
 		}
 #endif
 
-		if (CurrentEdge.NodeIndex == TargetEdge.NodeIndex)
+		if (CurrentLink.NodeIndex == TargetLink.NodeIndex)
 		{
 			FNav3DPathPoint PathPoint;
 
-			while (Parent.Contains(CurrentEdge) && CurrentEdge != Parent[CurrentEdge])
+			while (Parent.Contains(CurrentLink) && CurrentLink != Parent[CurrentLink])
 			{
-				CurrentEdge = Parent[CurrentEdge];
-				Volume->GetEdgeLocation(CurrentEdge, PathPoint.Location);
+				CurrentLink = Parent[CurrentLink];
+				Volume->GetLinkLocation(CurrentLink, PathPoint.Location);
 				Path.Points.Insert(PathPoint, 0);
-				const FNav3DOctreeNode& Node = Volume->GetNode(CurrentEdge);
-				if (CurrentEdge.GetLayerIndex() == 0)
+				const FNav3DNode& Node = Volume->GetNode(CurrentLink);
+				if (CurrentLink.GetLayerIndex() == 0)
 				{
 					if (!Node.HasChildren()) Path.Points[0].Layer = 1;
 					else Path.Points[0].Layer = 0;
 				}
 				else
 				{
-					Path.Points[0].Layer = CurrentEdge.GetLayerIndex() + 1;
+					Path.Points[0].Layer = CurrentLink.GetLayerIndex() + 1;
 				}
 			}
 
@@ -710,66 +713,66 @@ void UNav3DComponent::ExecutePathFinding(
 			{
 				if (Path.Points.Num() == 0) Path.Points.Emplace();
 				Path.Points[0].Location = TargetLocation;
-				Path.Points.Emplace(StartLocation, StartEdge.GetLayerIndex());
+				Path.Points.Emplace(StartLocation, StartLink.GetLayerIndex());
 			}
 
 			return;
 		}
-		if (!IsValid(Volume) || !CurrentEdge.IsValid())
+		if (!IsValid(Volume) || !CurrentLink.IsValid())
 		{
 			return;
 		}
-		const FNav3DOctreeNode& CurrentNode = Volume->GetNode(CurrentEdge);
-		TArray<FNav3DOctreeEdge> AdjacentEdges;
-		if (CurrentEdge.GetLayerIndex() == 0 && CurrentNode.FirstChild.IsValid())
+		const FNav3DNode& CurrentNode = Volume->GetNode(CurrentLink);
+		TArray<FNav3DLink> AdjacentLinks;
+		if (CurrentLink.GetLayerIndex() == 0 && CurrentNode.FirstChild.IsValid())
 		{
-			Volume->GetAdjacentLeafs(CurrentEdge, AdjacentEdges);
+			Volume->GetAdjacentLeafs(CurrentLink, AdjacentLinks);
 		}
 		else
 		{
-			Volume->GetAdjacentEdges(CurrentEdge, AdjacentEdges);
+			Volume->GetAdjacentLinks(CurrentLink, AdjacentLinks);
 		}
 
-		for (auto& AdjacentEdge : AdjacentEdges)
+		for (auto& AdjacentLink : AdjacentLinks)
 		{
-			if (AdjacentEdge.IsValid())
+			if (AdjacentLink.IsValid())
 			{
-				if (ClosedSet.Contains(AdjacentEdge))
+				if (ClosedSet.Contains(AdjacentLink))
 				{
 					continue;
 				}
-				if (!OpenSet.Contains(AdjacentEdge))
+				if (!OpenSet.Contains(AdjacentLink))
 				{
-					OpenSet.Add(AdjacentEdge);
+					OpenSet.Add(AdjacentLink);
 				}
 
 				float GScore = FLT_MAX;
-				if (G.Contains(CurrentEdge))
+				if (G.Contains(CurrentLink))
 				{
 					FVector CurrentLocation(0.f), AdjacentLocation(0.f);
-					Volume->GetEdgeLocation(CurrentEdge, CurrentLocation);
-					Volume->GetEdgeLocation(AdjacentEdge, AdjacentLocation);
+					Volume->GetLinkLocation(CurrentLink, CurrentLocation);
+					Volume->GetLinkLocation(AdjacentLink, AdjacentLocation);
 					float Cost;
 					Volume->GetPathCost(AdjacentLocation, Cost);
-					Cost -= static_cast<float>(TargetEdge.GetLayerIndex()) / static_cast<float>(Volume->NumLayers) *
+					Cost -= static_cast<float>(TargetLink.GetLayerIndex()) / static_cast<float>(Volume->NumLayers) *
 						Config.NodeSizePreference;
 					if (Config.Heuristic == ENav3DHeuristic::Euclidean)
 					{
 						Cost *= (CurrentLocation - AdjacentLocation).Size();
 					}
-					GScore = G[CurrentEdge] + Cost;
+					GScore = G[CurrentLink] + Cost;
 				}
 				else
 				{
-					G.Add(CurrentEdge, FLT_MAX);
+					G.Add(CurrentLink, FLT_MAX);
 				}
 
-				if (GScore >= (G.Contains(AdjacentEdge) ? G[AdjacentEdge] : FLT_MAX)) continue;
-				Parent.Add(AdjacentEdge, CurrentEdge);
-				G.Add(AdjacentEdge, GScore);
+				if (GScore >= (G.Contains(AdjacentLink) ? G[AdjacentLink] : FLT_MAX)) continue;
+				Parent.Add(AdjacentLink, CurrentLink);
+				G.Add(AdjacentLink, GScore);
 				// Greedy A* multiplies the heuristic score by the estimate weight
-				F.Add(AdjacentEdge,
-				      G[AdjacentEdge] + Config.EstimateWeight * HeuristicScore(AdjacentEdge, TargetEdge, Config));
+				F.Add(AdjacentLink,
+				      G[AdjacentLink] + Config.EstimateWeight * HeuristicScore(AdjacentLink, TargetLink, Config));
 			}
 		}
 		I++;
@@ -781,16 +784,15 @@ void UNav3DComponent::ExecutePathFinding(
 #endif
 }
 
-float UNav3DComponent::HeuristicScore(const FNav3DOctreeEdge StartEdge, const FNav3DOctreeEdge TargetEdge,
+float UNav3DComponent::HeuristicScore(const FNav3DLink StartLink, const FNav3DLink TargetLink,
                                       const FNav3DPathFindingConfig Config) const
 {
 	FVector StartLocation, TargetLocation;
-	Volume->GetEdgeLocation(StartEdge, StartLocation);
-	Volume->GetEdgeLocation(TargetEdge, TargetLocation);
+	Volume->GetLinkLocation(StartLink, StartLocation);
+	Volume->GetLinkLocation(TargetLink, TargetLocation);
 
 	// Divide euclidean distance into ten steps then sample points for modifier volume path cost updates
-	const FVector UnitStep = (TargetLocation - StartLocation).GetSafeNormal() * (StartLocation - TargetLocation).Size()
-		* 0.1;
+	const FVector UnitStep = (TargetLocation - StartLocation).GetSafeNormal() * (StartLocation - TargetLocation).Size() * 0.1;
 	float Cost = 0.f;
 	for (int32 I = 0; I < 10; I++)
 	{
@@ -809,7 +811,7 @@ float UNav3DComponent::HeuristicScore(const FNav3DOctreeEdge StartEdge, const FN
 		return Cost + FMath::Abs(TargetLocation.X - StartLocation.X) + FMath::Abs(TargetLocation.Y - StartLocation.Y) +
 			FMath::Abs(TargetLocation.Z - StartLocation.Z);
 	}
-	return ((StartLocation - TargetLocation).Size() + Cost) * (1.0f - (static_cast<float>(TargetEdge.LayerIndex) /
+	return ((StartLocation - TargetLocation).Size() + Cost) * (1.0f - (static_cast<float>(TargetLink.LayerIndex) /
 		static_cast<float>(Volume->NumLayers)) * Config.NodeSizePreference);
 }
 

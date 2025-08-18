@@ -12,32 +12,33 @@ class FNav3DFindPathTask : public FNonAbandonableTask
 public:
 	FNav3DFindPathTask(
 		UNav3DComponent* Nav3DComponent,
-		const FNav3DOctreeEdge StartEdge,
-		const FNav3DOctreeEdge TargetEdge,
+		const FNav3DLink StartLink,
+		const FNav3DLink TargetLink,
 		const FVector& StartLocation,
 		const FVector& TargetLocation,
 		const FNav3DPathFindingConfig& Config,
-        const FNav3DPathSharedPtr& Path,
+		const FNav3DPathSharedPtr& Path,
 		const FFindPathTaskCompleteDynamicDelegate& Complete) :
-	
+
 		Nav3DComponent(Nav3DComponent),
-		StartEdge(StartEdge),
-		TargetEdge(TargetEdge),
+		StartLink(StartLink),
+		TargetLink(TargetLink),
 		StartLocation(StartLocation),
 		TargetLocation(TargetLocation),
 		Config(Config),
 		Path(Path),
 		TaskComplete(Complete)
-	{}
+	{
+	}
 
 protected:
 	TWeakObjectPtr<UNav3DComponent> Nav3DComponent;
-	FNav3DOctreeEdge StartEdge;
-	FNav3DOctreeEdge TargetEdge;
+	FNav3DLink StartLink;
+	FNav3DLink TargetLink;
 	FVector StartLocation;
 	FVector TargetLocation;
 	FNav3DPathFindingConfig Config;
-    FNav3DPathSharedPtr Path;
+	FNav3DPathSharedPtr Path;
 	FFindPathTaskCompleteDynamicDelegate TaskComplete;
 
 	void DoWork() const
@@ -55,7 +56,7 @@ protected:
 		}
 
 		const double Start = FPlatformTime::Seconds();
-		Nav3DComponent->ExecutePathFinding(StartEdge, TargetEdge, StartLocation, TargetLocation, Config, *Path.Get());
+		Nav3DComponent->ExecutePathFinding(StartLink, TargetLink, StartLocation, TargetLocation, Config, *Path.Get());
 		Nav3DComponent->AddPathStartLocation(*Path.Get());
 		const double End = FPlatformTime::Seconds();
 

@@ -12,8 +12,8 @@ class FNav3DFindLineOfSightTask : public FNonAbandonableTask
 public:
 	FNav3DFindLineOfSightTask(
 		UNav3DComponent* Nav3DComponent,
-		const FNav3DOctreeEdge StartEdge,
-		const FNav3DOctreeEdge TargetEdge,
+		const FNav3DLink StartLink,
+		const FNav3DLink TargetLink,
 		const FVector& StartLocation,
 		AActor* TargetActor,
 		const float MinimumDistance,
@@ -22,8 +22,8 @@ public:
 		const FFindLineOfSightTaskCompleteDynamicDelegate& Complete) :
 	
 		Nav3DComponent(Nav3DComponent),
-		StartEdge(StartEdge),
-		TargetEdge(TargetEdge),
+		StartLink(StartLink),
+		TargetLink(TargetLink),
 		StartLocation(StartLocation),
 		TargetActor(TargetActor),
 		MinimumDistance(MinimumDistance),
@@ -33,8 +33,8 @@ public:
 
 protected:
     TWeakObjectPtr<UNav3DComponent> Nav3DComponent;
-	FNav3DOctreeEdge StartEdge;
-	FNav3DOctreeEdge TargetEdge;
+	FNav3DLink StartLink;
+	FNav3DLink TargetLink;
 	FVector StartLocation;
 	AActor* TargetActor;
 	float MinimumDistance;
@@ -44,7 +44,7 @@ protected:
 
 	void DoWork() const
 	{
-		Nav3DComponent->ExecutePathFinding(StartEdge, TargetEdge, StartLocation, TargetActor->GetActorLocation(),
+		Nav3DComponent->ExecutePathFinding(StartLink, TargetLink, StartLocation, TargetActor->GetActorLocation(),
 		                                   Config, Path);
 		Nav3DComponent->AddPathStartLocation(Path);
 		Nav3DComponent->ApplyPathLineOfSight(Path, TargetActor, MinimumDistance);

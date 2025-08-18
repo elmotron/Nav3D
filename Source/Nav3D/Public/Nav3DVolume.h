@@ -74,9 +74,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging|Voxels")
 	bool bDisplayLeafOcclusion = false;
 
-	// Show adjacency edges between each node
+	// Show adjacency links between each node
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging|Voxels")
-	bool bDisplayEdgeAdjacency = false;
+	bool bDisplayLinkAdjacency = false;
 
 	// The scaling factor for debug line drawing. Set to zero for fastest performance
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Nav3D|Debugging|Voxels")
@@ -153,13 +153,13 @@ public:
 		return GetBoundingBox().TransformBy(GetActorTransform()).IsInside(WorldLocation);
 	}
 
-	bool FindAccessibleEdge(FVector& WorldLocation, FNav3DOctreeEdge& Edge);
-	bool GetEdgeLocation(const FNav3DOctreeEdge& Edge, FVector& OutWorldLocation) const;
-	bool GetEdge(const FVector& WorldLocation, FNav3DOctreeEdge& Edge);
-	TArray<FNav3DOctreeEdge> CalculateVolatileEdges(const AActor* Actor) const;
+	bool FindAccessibleLink(FVector& WorldLocation, FNav3DLink& Link);
+	bool GetLinkLocation(const FNav3DLink& Link, FVector& OutWorldLocation) const;
+	bool GetLink(const FVector& WorldLocation, FNav3DLink& Link);
+	TArray<FNav3DLink> CalculateVolatileLinks(const AActor* Actor) const;
 
-	void GetAdjacentLeafs(const FNav3DOctreeEdge& Edge, TArray<FNav3DOctreeEdge>& AdjacentEdges) const;
-	void GetAdjacentEdges(const FNav3DOctreeEdge& Edge, TArray<FNav3DOctreeEdge>& AdjacentEdges) const;
+	void GetAdjacentLeafs(const FNav3DLink& Link, TArray<FNav3DLink>& AdjacentLinks) const;
+	void GetAdjacentLinks(const FNav3DLink& Link, TArray<FNav3DLink>& AdjacentLinks) const;
 
 	bool IsCoverLocationValid(const FVector& WorldLocation) const;
 	bool CoverMapValid() const { return CoverMap.Nodes.Num() > 0; }
@@ -173,8 +173,8 @@ public:
 	void GetLayerExtents(const FVector& WorldLocation, int32 LayerIndex, FIntVector& Extents) const;
 
 	bool OctreeValid() const { return NumLayers > 0 && Octree.Layers.Num() == NumLayers; }
-	const TArray<FNav3DOctreeNode>& GetLayer(const uint8 LayerIndex) const { return Octree.Layers[LayerIndex]; };
-	const FNav3DOctreeNode& GetNode(const FNav3DOctreeEdge& Edge) const;
+	const TArray<FNav3DNode>& GetLayer(const uint8 LayerIndex) const { return Octree.Layers[LayerIndex]; };
+	const FNav3DNode& GetNode(const FNav3DLink& Link) const;
 
 	FVector GetVolumeExtents() const
 	{
@@ -202,7 +202,7 @@ private:
 
 #if WITH_EDITOR
 	bool bDebugDrawRequested;
-	TArray<FNav3DDebugEdge> DebugEdges;
+	TArray<FNav3DDebugLink> DebugLinks;
 	TArray<FNav3DDebugPath> DebugPaths;
 	TArray<FNav3DDebugLocation> DebugLocations;
 #endif
@@ -250,7 +250,7 @@ private:
 		{0.7071f, -0.7071f, 0.f}, {1.f, 0.f, 0.f}, {0.7071f, 0.7071f, 0.f},
 		{0.57735f, -0.57735f, 0.57735f}, {0.7071f, 0.f, 0.7071f}, {0.57735f, 0.57735f, 0.57735f}
 	};
-	TArray<FNav3DOctreeNode>& GetLayer(const uint8 LayerIndex) { return Octree.Layers[LayerIndex]; };
+	TArray<FNav3DNode>& GetLayer(const uint8 LayerIndex) { return Octree.Layers[LayerIndex]; };
 
 #if WITH_EDITOR
 	void UpdateVolume();
@@ -259,9 +259,9 @@ private:
 	void RasterizeInitial();
 	void RasterizeLayer(uint8 LayerIndex);
 	void RasterizeLeaf(const FVector& NodeLocation, int32 LeafIndex);
-	void BuildEdges(uint8 LayerIndex);
-	bool FindEdge(uint8 LayerIndex, int32 NodeIndex, uint8 Direction, FNav3DOctreeEdge& Edge,
-	              const FVector& NodeLocation);
+	// Build node connectivity information
+	void BuildLayer(uint8 LayerIndex);
+	bool FindLink(uint8 LayerIndex, int32 NodeIndex, uint8 Direction, FNav3DLink& Link, const FVector& NodeLocation);
 	bool IsOccluded(const FVector& Location, float Size) const;
 	bool IsOccluded(const FVector& Location, float Size, TArray<FOverlapResult>& OverlapResults) const;
 	void UpdateCoverMap(const FVector& Location, TArray<FOverlapResult>& Overlaps);
@@ -271,15 +271,15 @@ private:
 	bool InDebugRange(const FVector& Location) const;
 	bool GetNodeIndex(uint8 LayerIndex, uint_fast64_t NodeMortonCode, int32& NodeIndex) const;
 	int32 GetInsertIndex(uint8 LayerIndex, uint_fast64_t MortonCode) const;
-	void UpdateNode(FNav3DOctreeEdge Edge);
+	void UpdateNode(FNav3DLink Link);
 	void UpdateLeaf(const FVector& Location, int32 LeafIndex);
 
 	void GetMortonVoxel(const FVector& Location, int32 LayerIndex, FIntVector& MortonLocation) const;
 
-	bool EdgeNodeIsValid(const FNav3DOctreeEdge& Edge) const;
+	bool NodeIsValid(const FNav3DLink& Link) const;
 
 	bool GetNodeLocation(uint8 LayerIndex, uint_fast64_t MortonCode, FVector& Location) const;
-	bool GetNodeLocation(FNav3DOctreeEdge Edge, FVector& Location);
+	bool GetNodeLocation(FNav3DLink Link, FVector& Location);
 
 	float GetVoxelScale(uint8 LayerIndex) const;
 
@@ -290,7 +290,7 @@ private:
 	void DebugDrawSphere(const FVector& Location, const float Radius, const FColor Colour) const;
 	void DebugDrawMortonCode(const FVector& Location, const FString& String, FColor Colour) const;
 	void DebugDrawLeafOcclusion();
-	void DebugDrawEdgeAdjacency() const;
+	void DebugDrawLinkAdjacency() const;
 	void DebugDrawBoundsMesh(const FBox& Box, FColor Colour) const;
 	void DebugDrawNavPaths() const;
 	void DebugDrawNavLocations() const;
